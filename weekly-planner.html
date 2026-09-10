@@ -42,7 +42,7 @@ body{
 }
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.wrap{max-width:var(--board-w);margin:0 auto;padding:24px 24px 12px}
+.wrap{max-width:var(--board-w);margin:0 auto;padding:16px 24px}
 
 /* =============================================================
    [C] 상단 헤더 (워드마크 + 일정 추가 버튼)
@@ -73,8 +73,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
    [E] 시간표 — 요일 헤더 / 시간 눈금 / 요일 열
    ============================================================= */
 .board{background:var(--card);border:1px solid var(--hairline);border-radius:5px;overflow:hidden}
-.scroll{overflow-x:auto}
-.inner{min-width:500px}   /* 이보다 좁아지면 가로 스크롤 */
+.scroll{overflow-x:visible}
+.inner{min-width:0}   /* 화면 폭에 맞춰 자동 축소 */
 
 .head-row{display:flex;border-bottom:1px solid var(--hourline);background:#FBFBFA}
 .head-row .corner{width:var(--gutter);flex:none;border-right:1px solid var(--hairline)}
@@ -184,13 +184,45 @@ select:focus{border-color:var(--ink);outline:none}
 .modal-foot .grow{flex:1}
 
 /* =============================================================
-   [H] 반응형
+   [H] 반응형 — 태블릿 / 모바일
    ============================================================= */
-@media (max-width:600px){
-  :root{--row:46px;--gutter:40px}
-  .wrap{padding:20px 12px 48px}
-  .mark .en{font-size:32px}
+
+/* 태블릿 (600~900px) */
+@media (max-width:900px){
+  :root{--row:36px}
+  .wrap{padding:14px 16px}
 }
+
+/* 모바일 (600px 이하) */
+@media (max-width:600px){
+  :root{--row:32px;--gutter:24px}
+  .wrap{padding:10px 8px}
+  .mark .en{font-size:26px}
+
+  .head-row .day{font-size:10px;letter-spacing:.02em;padding:7px 0 6px}
+  .gutter div{font-size:9px;padding:0 4px 0 0;top:-4.5px}
+
+  .ev{padding:3px 4px}
+  .ev .t{font-size:10px}
+  .ev .s{font-size:8.5px}
+  .ev .p{display:none}          /* 좁으니 장소는 숨김 */
+
+  .btn{padding:7px 10px;font-size:12px}
+
+  /* 팝업 */
+  .modal{padding:18px;border-radius:10px}
+  .days label,.days .all{font-size:10px;padding:8px 0}
+  select{padding:8px 4px;font-size:12.5px}
+  .times{gap:4px}
+}
+
+/* 아주 작은 폰 (380px 이하) */
+@media (max-width:380px){
+  :root{--row:28px;--gutter:20px}
+  .ev .t{font-size:9px}
+  .ev .s{font-size:8px}
+}
+
 </style>
 </head>
 
