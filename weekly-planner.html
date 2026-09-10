@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주간 웹 플래너</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+<style>
+/* =============================================================
+   [A] 토큰 — 색상 / 크기 (시간표 전체 톤은 여기서만 바꾸면 됩니다)
+   ============================================================= */
+:root{
+  --paper:#F7F7F6;        /* 페이지 배경 */
+  --card:#FFFFFF;         /* 시간표·팝업 배경 */
+  --ink:#131313;          /* 기본 글자 */
+  --ink-soft:#7f7f7f;     /* 보조 글자 */
+  --hairline:#dbdbdb;     /* 세로 구분선 */
+  --hourline:#f9f9f9;     /* 1시간 격자선 */
+  --accent:#1A1A1A;       /* 강조(버튼·선택·포커스) */
+  --fill:#F1F1EF;         /* 은은한 채움 */
+
+  --board-w:640px;       /* 시간표 전체 가로 폭 */
+  --row:39px;             /* 1시간 높이 */
+  --gutter:29px;          /* 시간 눈금 폭 */
+  --radius:6px;
+}
+
+/* =============================================================
+   [B] 기본 리셋
+   ============================================================= */
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:var(--board-w);margin:0 auto;padding:24px 24px 12px}
+
+/* =============================================================
+   [C] 상단 헤더 (워드마크 + 일정 추가 버튼)
+   ============================================================= */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+.mark{display:flex;align-items:baseline;gap:10px}
+.head-btns{display:flex;gap:8px}
+.mark .ko{font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--ink-soft)}
+.mark .en{font-family:'Bebas Neue',cursive;font-size:38px;line-height:.9;font-weight:700}
+
+/* =============================================================
+   [D] 버튼
+   ============================================================= */
+.btn{
+  border:1px solid var(--hairline);background:var(--card);
+  padding:9px 14px;border-radius:var(--radius);font-size:13px;font-weight:600;
+  transition:border-color .15s,background .15s,color .15s;
+}
+.btn:hover{border-color:var(--ink-soft)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:#000;border-color:#000}
+.btn-quiet{border-color:transparent;color:var(--ink-soft)}
+.btn-quiet:hover{color:var(--ink);background:var(--fill)}
+.btn-danger{color:var(--ink-soft)}
+.btn-danger:hover{color:var(--ink);border-color:var(--ink)}
+
+/* =============================================================
+   [E] 시간표 — 요일 헤더 / 시간 눈금 / 요일 열
+   ============================================================= */
+.board{background:var(--card);border:1px solid var(--hairline);border-radius:5px;overflow:hidden}
+.scroll{overflow-x:auto}
+.inner{min-width:500px}   /* 이보다 좁아지면 가로 스크롤 */
+
+.head-row{display:flex;border-bottom:1px solid var(--hourline);background:#FBFBFA}
+.head-row .corner{width:var(--gutter);flex:none;border-right:1px solid var(--hairline)}
+.head-row .day{
+  flex:1;text-align:center;padding:11px 0 10px;
+  font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--ink-soft);
+  border-left:1px solid var(--hairline);
+}
+
+.body-row{display:flex}
+.gutter{width:var(--gutter);flex:none;background:#FBFBFA;border-right:1px solid var(--hairline)}
+.gutter div{
+  height:var(--row);font-size:11px;color:var(--ink-soft);
+  text-align:right;padding:0px 7px 0 0;font-variant-numeric:tabular-nums;
+  line-height:1;position:relative;top:-5.5px;
+}
+.cols{flex:1;display:flex}
+.col{
+  flex:1;position:relative;border-left:1px solid var(--hairline);
+  background-image:linear-gradient(to bottom,var(--hourline) 1px,transparent 1px);
+  background-size:100% var(--row);   /* 1시간 단위 격자선 */
+}
+
+/* =============================================================
+   [F] 일정 블록 (5분 단위 위치는 JS가 % 로 계산)
+   ============================================================= */
+.ev{
+  position:absolute;left:0px;right:0px;
+  border-radius:0px;padding:5px 7px;overflow:hidden;
+  text-align:left;cursor:pointer;
+  transition:filter .12s;
+}
+.ev:hover{filter:brightness(.97)}
+.ev .t{display:block;font-size:12px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .s{display:block;font-size:10.5px;opacity:.72;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .p{display:block;font-size:10.5px;opacity:.6;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+
+/* =============================================================
+   [G] 팝업 (추가 / 수정)
+   ============================================================= */
+.overlay{
+  position:fixed;inset:0;background:rgba(26,26,26,.36);
+  display:none;align-items:center;justify-content:center;padding:20px;z-index:20;
+}
+.overlay.open{display:flex}
+.modal{
+  background:var(--card);border-radius:12px;width:100%;max-width:420px;
+  max-height:90vh;overflow-y:auto;padding:24px;
+  box-shadow:0 16px 44px rgba(0,0,0,.16);
+}
+.modal h2{font-size:17px;letter-spacing:-.02em;margin-bottom:18px}
+
+/* 입력 필드 공통 */
+.field{margin-bottom:15px}
+.field > label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+.field .req{color:var(--ink);margin-left:2px}
+input[type=text]{
+  width:100%;padding:9px 11px;font:inherit;font-size:13.5px;
+  border:1px solid var(--hairline);border-radius:var(--radius);background:#FCFCFB;color:var(--ink);
+}
+input[type=text]:focus{border-color:var(--ink);outline:none;background:#fff}
+input::placeholder{color:#BEBEBC}
+
+/* 요일 선택 (중복 선택) */
+.days{display:flex;gap:6px}
+.days input{position:absolute;opacity:0;width:0;height:0}
+.days label{
+  flex:1;text-align:center;padding:9px 0;font-size:11.5px;font-weight:700;letter-spacing:.03em;
+  border:1px solid var(--hairline);border-radius:var(--radius);
+  background:#FCFCFB;color:var(--ink-soft);cursor:pointer;transition:.12s;
+}
+.days input:checked + label{background:var(--accent);border-color:var(--accent);color:#fff}
+.days input:focus-visible + label{outline:2px solid var(--accent);outline-offset:2px}
+
+.days .all{
+  flex:1.3;text-align:center;padding:9px 0;font-size:11.5px;font-weight:700;
+  border:1px solid var(--hairline);border-radius:var(--radius);
+  background:#FCFCFB;color:var(--ink-soft);cursor:pointer;transition:.12s;
+}
+.days .all:hover{border-color:var(--ink-soft);color:var(--ink)}
+
+/* 시작 / 종료 시간 */
+.times{display:flex;align-items:center;gap:8px}
+.times .sep{color:var(--ink-soft)}
+select{
+  font:inherit;font-size:13.5px;padding:9px 8px;border:1px solid var(--hairline);
+  border-radius:var(--radius);background:#FCFCFB;color:var(--ink);cursor:pointer;
+}
+select:focus{border-color:var(--ink);outline:none}
+
+/* 색상 선택 */
+.palette{display:grid;grid-template-columns:repeat(4,28px);gap:8px}
+.palette input{position:absolute;opacity:0;width:0;height:0}
+.palette label{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
+.palette input:checked + label{border-color:var(--accent);transform:scale(1.06)}
+.palette input:focus-visible + label{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 오류 메시지 · 하단 버튼 */
+.err{
+  display:none;font-size:12.5px;background:var(--fill);
+  border-left:3px solid var(--ink);border-radius:0 var(--radius) var(--radius) 0;
+  padding:9px 11px;margin-bottom:14px;
+}
+.err.show{display:block}
+.modal-foot{display:flex;gap:8px;margin-top:20px}
+.modal-foot .grow{flex:1}
+
+/* =============================================================
+   [H] 반응형
+   ============================================================= */
+@media (max-width:600px){
+  :root{--row:46px;--gutter:40px}
+  .wrap{padding:20px 12px 48px}
+  .mark .en{font-size:32px}
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <!-- ========== 헤더 ========== -->
+  <header class="top">
+    <div class="mark">
+      <span class="en">Routine Planner</span>
+    </div>
+    <div class="head-btns">
+      <button class="btn" id="btnExport">이미지 저장</button>
+      <button class="btn btn-primary" id="btnAdd">+</button>
+    </div>
+  </header>
+
+  <!-- ========== 시간표 ========== -->
+  <div class="board">
+    <div class="scroll">
+      <div class="inner">
+        <div class="head-row" id="headRow"><div class="corner"></div></div>
+        <div class="body-row">
+          <div class="gutter" id="gutter"></div>
+          <div class="cols" id="cols"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 팝업 (추가 / 수정) ========== -->
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle">일정 추가</h2>
+    <div class="err" id="err"></div>
+
+    <div class="field">
+      <label for="fTitle">제목<span class="req">*</span></label>
+      <input type="text" id="fTitle" placeholder="예) 동아리" maxlength="30" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label>요일<span class="req">*</span></label>
+      <div class="days" id="fDays"></div>
+    </div>
+
+    <div class="field">
+      <label>시간<span class="req">*</span></label>
+      <div class="times">
+        <select id="fSH"></select><select id="fSM"></select>
+        <span class="sep">–</span>
+        <select id="fEH"></select><select id="fEM"></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="fPlace">장소</label>
+      <input type="text" id="fPlace" placeholder="예) 학교 / 상도로369" maxlength="30" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label>색상</label>
+      <div class="palette" id="fColor"></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="btnDelete" style="display:none">삭제</button>
+      <span class="grow"></span>
+      <button class="btn btn-quiet" id="btnCancel">취소</button>
+      <button class="btn btn-primary" id="btnSave">완료</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =============================================================
+   [01] 설정 — 요일 / 시간 범위 / 색상 팔레트
+   ============================================================= */
+const DAYS = ['MON','TUE','WED','THU','FRI'];
+const START_H = 9, END_H = 24;              // 9시 ~ 24시(자정) — 눈금은 9~23 표시
+const TOTAL_MIN = (END_H - START_H) * 60;   // 900분
+const STEP = 5;                             // 5분 단위
+
+// 일정 블록 고정 팔레트 (bg: 배경 / text: 글자)
+const PALETTE = [
+  // 1행 — 따뜻한 색
+  {key:'cream', name:'크림',   bg:'#FFF5E4', text:'#7A5A3C'},
+  {key:'peach', name:'연분홍', bg:'#FFE3E1', text:'#7A4642'},
+  {key:'pink',  name:'분홍',   bg:'#FFD1D1', text:'#7A3B3B'},
+  {key:'coral', name:'코랄',   bg:'#FFAFAF', text:'#6B2A2A'},
+  // 2행 — 시원한 색
+  {key:'ice',   name:'아이스', bg:'#DFF2EB', text:'#2A5A4D'},
+  {key:'aqua',  name:'아쿠아', bg:'#B9E5E8', text:'#1F5257'},
+  {key:'sky',   name:'하늘',   bg:'#A8CFE4', text:'#1B4460'},
+  {key:'navy',  name:'남색',   bg:'#8FA6C8', text:'#1E2E4D'}
+];
+const DEFAULT_COLOR = 'cream';
+const colorOf = key => PALETTE.find(c => c.key === key) || PALETTE[0];
+
+
+/* =============================================================
+   [02] 데이터 — 일정 목록 (브라우저에 저장되어 새로고침해도 유지)
+   형식: {id, title, days:[0~4], place, start, end, color}
+   시간은 '자정부터 흐른 분' 숫자 (600 = 10:00)
+   ============================================================= */
+let schedules = [];
+let nextId = 1;
+
+
+/* =============================================================
+   [03] 시간 유틸
+   ============================================================= */
+const hhmm = t => `${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;
+
+
+/* =============================================================
+   [04] 시간표 뼈대 만들기 (최초 1회)
+   ============================================================= */
+const headRow = document.getElementById('headRow');
+const gutter  = document.getElementById('gutter');
+const cols    = document.getElementById('cols');
+
+// 요일 헤더
+DAYS.forEach(d => {
+  const el = document.createElement('div');
+  el.className = 'day';
+  el.textContent = d;
+  headRow.appendChild(el);
+});
+
+// 왼쪽 시간 눈금 (9, 10, 11 … 23)
+for (let h = START_H; h < END_H; h++) {
+  const el = document.createElement('div');
+  el.textContent = h;
+  gutter.appendChild(el);
+}
+
+// 요일 열 (일정 블록이 담기는 곳)
+DAYS.forEach(() => {
+  const col = document.createElement('div');
+  col.className = 'col';
+  cols.appendChild(col);
+});
+
+
+/* =============================================================
+   [05] 일정 블록 그리기 — 데이터가 바뀌면 항상 render() 호출
+   ============================================================= */
+function render(){
+  document.querySelectorAll('.ev').forEach(el => el.remove());
+
+  schedules.forEach(s => {
+    const c = colorOf(s.color);
+
+    s.days.forEach(day => {
+      // 위치 계산: 시작·길이를 전체 시간 대비 % 로 환산 (5분 단위 그대로 반영)
+      const top    = ((s.start - START_H * 60) / TOTAL_MIN) * 100;
+      const height = ((s.end - s.start) / TOTAL_MIN) * 100;
+
+      const el = document.createElement('button');
+      el.className = 'ev';
+      el.style.cssText =
+        `top:${top}%;height:calc(${height}%);background:${c.bg};color:${c.text}`;
+      el.innerHTML = `<span class="t"></span><span class="s"></span><span class="p"></span>`;
+      el.querySelector('.t').textContent = s.title;
+      el.querySelector('.s').textContent = `${hhmm(s.start)}–${hhmm(s.end)}`;
+      el.querySelector('.p').textContent = s.place;
+      el.setAttribute('aria-label', `${DAYS[day]} ${s.title} ${hhmm(s.start)}부터 ${hhmm(s.end)}까지`);
+
+      el.addEventListener('click', () => openModal(s));   // 클릭 → 수정 팝업
+      cols.children[day].appendChild(el);
+    });
+  });
+}
+
+
+/* =============================================================
+   [06] 팝업 입력 폼 만들기 (요일 · 시간 · 색상 선택지 생성)
+   ============================================================= */
+// 요일 체크박스 (중복 선택)
+document.getElementById('fDays').innerHTML = DAYS.map((d, i) =>
+  `<input type="checkbox" id="day${i}" value="${i}"><label for="day${i}">${d}</label>`
+).join('') + `<button type="button" id="btnAllDays" class="all">매일</button>`;
+ 
+// 매일 버튼 : 전부 선택 ↔ 전부 해제
+document.getElementById('btnAllDays').addEventListener('click', () => {
+  const boxes = [...document.querySelectorAll('#fDays input')];
+  const allOn = boxes.every(b => b.checked);
+  boxes.forEach(b => b.checked = !allOn);
+});
+
+// 색상 라디오
+document.getElementById('fColor').innerHTML = PALETTE.map((c, i) =>
+  `<input type="radio" name="color" id="col${i}" value="${c.key}"${c.key === DEFAULT_COLOR ? ' checked' : ''}>
+   <label for="col${i}" style="background:${c.bg};box-shadow:inset 0 0 0 2px ${c.text}" title="${c.name}"></label>`
+).join('');
+
+// 시 / 분 드롭다운 (분은 5분 단위만 생성 → 어긋난 값 입력 자체가 불가)
+['fSH','fEH'].forEach(id => {
+  const sel = document.getElementById(id);
+  for (let h = START_H; h <= END_H; h++)
+    sel.insertAdjacentHTML('beforeend', `<option value="${h}">${h}시</option>`);
+});
+['fSM','fEM'].forEach(id => {
+  const sel = document.getElementById(id);
+  for (let m = 0; m < 60; m += STEP)
+    sel.insertAdjacentHTML('beforeend', `<option value="${m}">${String(m).padStart(2,'0')}분</option>`);
+});
+
+const setTime = (hId, mId, t) => {
+  document.getElementById(hId).value = Math.floor(t / 60);
+  document.getElementById(mId).value = t % 60;
+};
+const getTime = (hId, mId) =>
+  Number(document.getElementById(hId).value) * 60 + Number(document.getElementById(mId).value);
+
+
+/* =============================================================
+   [07] 팝업 열기 / 닫기
+   editingId 가 null 이면 '추가', 값이 있으면 '수정' 모드
+   ============================================================= */
+const overlay = document.getElementById('overlay');
+const errBox  = document.getElementById('err');
+let editingId = null;
+
+function openModal(s){
+  editingId = s ? s.id : null;
+  errBox.classList.remove('show');
+
+  document.getElementById('modalTitle').textContent = s ? '일정 수정' : '일정 추가';
+  document.getElementById('btnDelete').style.display = s ? 'block' : 'none';
+
+  document.getElementById('fTitle').value = s ? s.title : '';
+  document.getElementById('fPlace').value = s ? s.place : '';
+  DAYS.forEach((_, i) => document.getElementById('day' + i).checked = s ? s.days.includes(i) : false);
+  setTime('fSH', 'fSM', s ? s.start : 600);
+  setTime('fEH', 'fEM', s ? s.end   : 660);
+  document.querySelector(`input[name=color][value="${s ? s.color : DEFAULT_COLOR}"]`).checked = true;
+
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('fTitle').focus(), 30);
+}
+
+function closeModal(){
+  overlay.classList.remove('open');
+  editingId = null;
+}
+
+const showErr = msg => { errBox.textContent = msg; errBox.classList.add('show'); };
+
+
+/* =============================================================
+   [08] 저장 — 필수값 검사 → 겹침 검사 → 추가/수정
+   ============================================================= */
+function save(){
+  const title = document.getElementById('fTitle').value.trim();
+  const place = document.getElementById('fPlace').value.trim();
+  const days  = [...document.querySelectorAll('#fDays input:checked')].map(c => Number(c.value));
+  const start = getTime('fSH', 'fSM');
+  const end   = getTime('fEH', 'fEM');
+  const color = document.querySelector('input[name=color]:checked').value;
+
+  // 필수값 검사
+  if (!title)              return showErr('제목을 입력해 주세요.');
+  if (!days.length)        return showErr('요일을 하나 이상 선택해 주세요.');
+  if (end <= start)        return showErr('종료 시간은 시작 시간보다 늦어야 해요.');
+  if (end > END_H * 60)    return showErr('종료 시간은 24시를 넘을 수 없어요.');
+
+  // 겹침 검사 — 같은 요일에 시간이 겹치면 저장 불가
+  for (const s of schedules) {
+    if (s.id === editingId) continue;
+    const clash = s.days.find(d => days.includes(d) && start < s.end && end > s.start);
+    if (clash !== undefined)
+      return showErr(`${DAYS[clash]} ‘${s.title}’(${hhmm(s.start)}–${hhmm(s.end)})와 시간이 겹쳐요.`);
+  }
+
+  // 저장
+  if (editingId) {
+    Object.assign(schedules.find(s => s.id === editingId), {title, days, place, start, end, color});
+  } else {
+    schedules.push({id: nextId++, title, days, place, start, end, color});
+  }
+
+  store();
+  closeModal();
+  render();
+}
+
+
+/* =============================================================
+   [09] 삭제
+   ============================================================= */
+function remove(){
+  schedules = schedules.filter(s => s.id !== editingId);
+  store();
+  closeModal();
+  render();
+}
+
+
+/* =============================================================
+   [09-2] 브라우저에 저장 / 불러오기
+   ============================================================= */
+const STORE_KEY = 'weekly-planner';
+
+function store(){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({schedules, nextId})); }
+  catch (e) { console.warn('저장 실패', e); }
+}
+
+function load(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    schedules = data.schedules || [];
+    nextId    = data.nextId || 1;
+  } catch (e) { console.warn('불러오기 실패', e); }
+}
+
+
+/* =============================================================
+   [09-3] 이미지로 저장 (1200×1600, 3:4)
+   ============================================================= */
+function exportImage(){
+  const W = 1200, H = 1600, PAD = 56, GUT = 74;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const x = cv.getContext('2d');
+  const KO = "'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+
+  const gx = PAD + GUT, gy = 190;
+  const gw = W - PAD - gx, gh = H - PAD - gy;
+  const colW = gw / DAYS.length;
+  const rowH = gh / (END_H - START_H);
+
+  x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, W, H);
+
+  // 제목
+  x.fillStyle = '#131313'; x.font = `62px 'Bebas Neue',sans-serif`;
+  x.fillText('Routine Planner', PAD, 110);
+
+  // 요일
+  x.font = `700 22px ${KO}`; x.fillStyle = '#7F7F7F'; x.textAlign = 'center';
+  DAYS.forEach((d, i) => x.fillText(d, gx + colW * i + colW / 2, gy - 22));
+
+  // 격자선 + 시간 숫자
+  x.strokeStyle = '#DBDBDB'; x.lineWidth = 2;
+  x.textAlign = 'right'; x.font = `20px ${KO}`;
+  for (let h = START_H; h <= END_H; h++) {
+    const y = Math.round(gy + (h - START_H) * rowH);
+    x.beginPath(); x.moveTo(gx, y); x.lineTo(gx + gw, y); x.stroke();
+    if (h < END_H) { x.fillStyle = '#7F7F7F'; x.fillText(h, gx - 16, y + 7); }
+  }
+  for (let i = 0; i <= DAYS.length; i++) {
+    const cx = Math.round(gx + colW * i) + 0.5;
+    x.beginPath(); x.moveTo(cx, gy); x.lineTo(cx, gy + gh); x.stroke();
+  }
+
+  // 일정 블록
+  schedules.forEach(s => {
+    const c = colorOf(s.color);
+    s.days.forEach(d => {
+      const bx = gx + colW * d + 1;
+      const by = gy + ((s.start - START_H * 60) / TOTAL_MIN) * gh;
+      const bw = colW - 2;
+      const bh = ((s.end - s.start) / TOTAL_MIN) * gh;
+
+      x.fillStyle = c.bg; x.fillRect(bx, by, bw, bh);
+
+      x.save();                                   // 블록 밖으로 글자 안 넘치게
+      x.beginPath(); x.rect(bx, by, bw, bh); x.clip();
+      x.fillStyle = c.text; x.textAlign = 'left';
+      x.font = `700 20px ${KO}`;  x.fillText(s.title, bx + 12, by + 30);
+      x.font = `17px ${KO}`;      x.fillText(`${hhmm(s.start)}–${hhmm(s.end)}`, bx + 12, by + 54);
+      if (s.place)                x.fillText(s.place, bx + 12, by + 76);
+      x.restore();
+    });
+  });
+
+  const a = document.createElement('a');
+  a.download = 'routine-planner.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+}
+
+/* =============================================================
+   [10] 이벤트 연결 · 시작
+   ============================================================= */
+document.getElementById('btnAdd').addEventListener('click', () => openModal(null));
+document.getElementById('btnSave').addEventListener('click', save);
+document.getElementById('btnCancel').addEventListener('click', closeModal);
+document.getElementById('btnDelete').addEventListener('click', remove);
+document.getElementById('btnExport').addEventListener('click', exportImage);
+
+overlay.addEventListener('mousedown', e => { if (e.target === overlay) closeModal(); });
+document.addEventListener('keydown', e => {
+  if (!overlay.classList.contains('open')) return;
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') save();
+});
+
+load();
+render();
+</script>
+</body>
+</html>
